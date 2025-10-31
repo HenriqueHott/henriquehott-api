@@ -3,7 +3,7 @@ import uuid
 from flask import Blueprint, request, jsonify
 from mongoengine import ValidationError
 
-from app.auth import require_api_key
+from app.middlewares.auth import require_api_key
 from app.models import Post
 
 posts_bp = Blueprint("posts", __name__)
@@ -34,6 +34,19 @@ def create_post():
         return jsonify({"error": str(e)}), 400
     
     return jsonify(post.to_dict()), 201
+
+@posts_bp.route("/posts/<post_id>", methods=["GET"])
+def get_post(post_id):
+    try:
+        uuid.UUID(post_id)
+    except ValueError:
+        return jsonify({"error": "ID inválido"}), 400
+
+    post = Post.objects(id=post_id).first()
+    if not post:
+        return jsonify({"error": "Post não encontrado"}), 404
+
+    return jsonify(post.to_dict()), 200
 
 @posts_bp.route("/posts", methods=["GET"])
 def get_posts():
@@ -102,3 +115,18 @@ def update_post(post_id):
         return jsonify({"error": str(e)}), 400
 
     return jsonify(post.to_dict()), 200
+
+@posts_bp.route("/posts/<post_id>", methods=["DELETE"])
+@require_api_key
+def delete_post(post_id):
+    try:
+        uuid.UUID(post_id)
+    except ValueError:
+        return '', 200
+
+    post = Post.objects(id=post_id).first()
+    if not post:
+        return '', 200
+
+    post.delete()
+    return  '', 200
